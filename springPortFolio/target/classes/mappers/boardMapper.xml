@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.test.mapper.BoardMapper">
+<!-- 타이틀 다 가져오기 -->
+<select id="allTitle" resultType="BoardTitleVO">
+	select *
+	from tbl_boardtitle
+	order by num
+</select>
+
+<select id="getTitle" resultType="BoardTitleVO">
+    select *
+    from tbl_boardtitle
+    where title=#{title}
+</select>
+
+<!-- 게시판 타이틀별 다 가져오기 -->
+<select id="boardList" resultType="BoardVO">
+	select *
+	<if test="search ==null">
+	from (select bno,title,board_title,content,writer,regdate,viewcnt,replycnt,good,thumbnail,row_number() over(order by title)r 
+	from tbl_board
+	where title=#{title} 
+	)
+	</if>
+	<if test="search !=null">
+	from (select bno,title,board_title,content,writer,regdate,viewcnt,replycnt,good,thumbnail,row_number() over(order by title)r 
+	from tbl_board  
+	where board_title  like '%'||#{search}||'%' 
+	)
+    </if> 
+	where r between #{pageStart} and #{perPageNum}*#{page}
+</select>
+
+<!-- bno를 이용해서 해당 게시판 가져오기 -->
+<select id="read" resultType="BoardVO">
+	select bno,title,board_title,content,writer,good,regdate,viewcnt,replycnt,thumbnail,b.user_image
+	from tbl_board a,tbl_user b
+	where bno=#{bno} and a.writer=b.nickname
+</select>
+
+<!-- 타이틀 별 게시판 갯수 -->
+<select id="countBoard" resultType="int">
+	select count(*)
+	from tbl_board
+	<if test="search == null">
+	 where title=#{title}
+	</if>
+	<if test="search != null">
+	 where board_title like '%'||#{search}||'%'
+	</if>
+</select>
+
+<!--게시판 삭제 -->
+<delete id="deleteBoard">
+	delete from tbl_board
+	where bno=#{bno}
+</delete>
+
+ <!-- 게시판 등록 -->
+ <insert id="addBoard">
+ insert into tbl_board(bno,title,board_title,content,writer,thumbnail)
+ values(board_bno.nextval,#{title},#{board_title},#{content},#{writer},#{thumbnail})
+ </insert>
+ 
+ 
+ <!-- 시퀀스 번호 가져오기 -->
+ <select id="getbno" resultType="int" >
+ select last_number
+ from user_sequences
+ where sequence_name='BOARD_BNO'
+ </select>
+ 
+ 
+ <!-- 게시판 수정 -->
+ <update id="updateBoard">
+ 	update tbl_board
+ 	set content=#{content},board_title=#{board_title}
+ 	where bno=#{bno}
+ </update>
+ 
+ 
+ <!-- 댓글 추가 시 해당 게시판 댓글 수 증가-->
+ <update id="addReplyCnt" >
+ update tbl_board
+ set replycnt=replycnt+1
+ where bno=#{bno}
+ </update>
+ 
+ <!-- 댓글 추가 시 해당 게시판 댓글 수 감소-->
+ <update id="subtractReplyCnt" >
+ update tbl_board
+ set replycnt=replycnt-1
+ where bno=#{bno}
+ </update>
+ 
+<!-- 게시판 읽을 시 조회 수 증가 -->
+<update id="increaseBoard">
+update tbl_board
+set viewcnt=viewcnt+1
+where bno=#{bno}
+</update>
+
+<!-- 타이틀 별 베스트5 가져오기 -->
+<select id="boardBest" resultType="BoardVO">
+	<![CDATA[
+	select *
+	from (select a.bno,a.title,a.board_title,a.content,a.writer,a.regdate,a.viewcnt,a.replycnt,a.thumbnail,b.title_img,row_number() over(partition by a.title order by a.viewcnt desc)as ranking
+	       from tbl_board a,tbl_boardtitle b
+	       where a.title=b.title)
+	where ranking<6
+	]]>
+</select>
+
+<!-- 검색 -->
+<select id="searchBoard" resultType="BoardVO">
+   select *
+   from tbl_board
+   where board_title like %#{board_title}%
+</select>
+
+
+<!-- @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@좋아요 관련 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ -->
+<!-- 게시판 좋아요 -->
+<update id="incLike">
+	update tbl_board
+	set good=good+1
+	where bno=#{bno}
+</update>
+
+<!-- 게시판 좋아요 취소 -->
+<update id="decLike">
+	update tbl_board
+	set good=good-1
+	where bno=#{bno}
+</update>
+
+<update id="modifyLike">
+	update tbl_board_like
+	set likeCheck=#{likeCheck}
+	where bno=#{bno} and nickname=#{nickname}
+</update>
+
+<!-- 좋아요 여부 체크 -->
+<select id="likeCheck" resultType="LikeCheck">
+	select *
+	from tbl_board_like
+	where bno=#{bno} and nickname=#{nickname}
+</select>
+
+<!-- 좋아요 정보 추가 -->
+<insert id="insertLikeCheck">
+	insert into tbl_board_like(bno,nickname)
+	values(#{bno},#{nickname})
+</insert>
+
+<!-- 게시판 수 증가 -->
+<update id="incBoardTitle">
+	update tbl_boardtitle
+	set board_cnt=board_cnt+1
+	where title=#{title}
+</update>
+
+<!-- 게시판 수 감소 -->
+ <update id="decBoardTitle">
+	update tbl_boardtitle
+	set board_cnt=board_cnt-1
+	where title=#{title}
+</update>
+ 
+</mapper>
